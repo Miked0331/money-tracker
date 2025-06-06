@@ -40,3 +40,8 @@
 .read-the-docs {
   color: #888;
 }
+
+.react-calendar__tile.highlight {
+  background: #a3d5ff;
+  border-radius: 6px;
+}

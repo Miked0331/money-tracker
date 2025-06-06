@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Money Tracker</title>
+  <link rel="stylesheet" href="./dist/output.css" />
+</head>
+<body class="bg-gray-100 text-gray-900">
+  <div class="max-w-2xl mx-auto p-4">
+    <h1 class="text-3xl font-bold mb-4">💰 Money Tracker</h1>
+    <p class="text-lg">Your app is ready to style with Tailwind CSS!</p>
+  </div>
+  <div class="max-w-xl mx-auto p-6 bg-white rounded-lg shadow mt-10 space-y-4">
+  <h2 class="text-2xl font-semibold">Add Entry</h2>
+
+  <div class="flex flex-col gap-2">
+    <label for="description" class="font-medium">What did you do?</label>
+    <input
+      id="description"
+      type="text"
+      placeholder="E.g., Bought groceries"
+      class="border rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
+    />
+  </div>
+
+  <div class="flex flex-col gap-2">
+    <label for="date" class="font-medium">When?</label>
+    <input
+      id="date"
+      type="date"
+      class="border rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
+    />
+
+  </div>
+
+  <div class="flex flex-col gap-2">
+  <label for="amount" class="font-medium">Amount (optional)</label>
+  <input
+    id="amount"
+    type="number"
+    step="0.01"
+    placeholder="E.g., 25.00"
+    class="border rounded px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
+  />
+</div>
+
+
+  <button
+    id="addEntryBtn"
+    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+  >
+    Add Entry
+  </button>
+</div>
+
+<script>
+  const descriptionInput = document.getElementById('description');
+  const dateInput = document.getElementById('date');
+  const amountInput = document.getElementById('amount');
+  const addButton = document.getElementById('addEntryBtn');
+
+  const entriesList = document.createElement('div');
+  entriesList.className = "space-y-2 mt-6";
+  document.body.appendChild(entriesList);
+
+  let entries = JSON.parse(localStorage.getItem('entries')) || [];
+
+  function saveEntries() {
+    localStorage.setItem('entries', JSON.stringify(entries));
+  }
+
+  function renderEntries() {
+    entriesList.innerHTML = '';
+    entries.forEach((entry, index) => {
+      const div = document.createElement('div');
+      div.className = "bg-gray-100 p-4 rounded flex justify-between items-center";
+
+      const content = `
+        <div>
+          <div class="font-medium">${entry.description}</div>
+          <div class="text-sm text-gray-600">${entry.date}${entry.amount ? ` – $${entry.amount}` : ''}</div>
+        </div>
+        <button class="text-red-500 hover:text-red-700 font-bold" data-index="${index}">Delete</button>
+      `;
+
+      div.innerHTML = content;
+      entriesList.appendChild(div);
+    });
+
+    document.querySelectorAll('button[data-index]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = btn.getAttribute('data-index');
+        entries.splice(i, 1);
+        saveEntries();
+        renderEntries();
+      });
+    });
+  }
+
+  addButton.addEventListener('click', () => {
+    const desc = descriptionInput.value.trim();
+    const date = dateInput.value;
+    const amount = amountInput.value.trim();
+
+    if (!desc || !date) {
+      alert('Please enter both a description and date.');
+      return;
+    }
+
+    const newEntry = {
+      description: desc,
+      date,
+      amount: amount || null,
+    };
+
+    entries.push(newEntry);
+    saveEntries();
+    renderEntries();
+
+    // Clear inputs
+    descriptionInput.value = '';
+    dateInput.value = '';
+    amountInput.value = '';
+  });
+
+  // Initial render
+  renderEntries();
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(() => {
+      console.log("✅ Service Worker registered");
+    });
+  }
+</script>
+
+
+
+</body>
+</html>

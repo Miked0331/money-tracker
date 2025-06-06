@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { format, parseISO, isSameWeek, isSameMonth } from 'date-fns';
+
 
 function App() {
   const [entries, setEntries] = useState(() => {
@@ -24,6 +26,24 @@ function App() {
     localStorage.setItem('entries', JSON.stringify(updated));
     setForm({ date: '', work: '', income: '' });
   };
+
+  const getWeeklyTotal = () => {
+  return entries
+    .filter(entry => isSameWeek(parseISO(entry.date), new Date(), { weekStartsOn: 1 }))
+    .reduce((total, entry) => total + (parseFloat(entry.amount) || 0), 0);
+};
+
+const getMonthlyTotal = () => {
+  return entries
+    .filter(entry => isSameMonth(parseISO(entry.date), new Date()))
+    .reduce((total, entry) => total + (parseFloat(entry.amount) || 0), 0);
+};
+
+<div className="bg-gray-100 p-4 rounded mb-4">
+  <h2 className="text-lg font-semibold mb-2">💰 Money Summary</h2>
+  <p>📅 This Week: <strong>${getWeeklyTotal().toFixed(2)}</strong></p>
+  <p>🗓️ This Month: <strong>${getMonthlyTotal().toFixed(2)}</strong></p>
+</div>
 
 return (
   <div className="p-4 max-w-md mx-auto text-gray-800">

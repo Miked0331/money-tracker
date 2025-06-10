@@ -18,54 +18,62 @@ function App() {
     localStorage.setItem("entries", JSON.stringify(entries));
   }, [entries]);
 
-  const handleSubmit = (e) => {
+  const handleAddEntry = (e) => {
     e.preventDefault();
     if (!description || !amount || !date) return;
 
     const newEntry = {
+      id: Date.now(),
       description,
       amount: parseFloat(amount),
       date,
     };
 
-    setEntries((prev) => [...prev, newEntry]);
+    setEntries([...entries, newEntry]);
     setDescription("");
     setAmount("");
     setDate("");
   };
 
+  const handleRemove = (id) => {
+    const updated = entries.filter((entry) => entry.id !== id);
+    setEntries(updated);
+  };
+
   return (
-    <div className="p-4 max-w-4xl mx-auto">
+    <div className="p-4 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">💰 Money Tracker</h1>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <form onSubmit={handleAddEntry} className="mb-6 space-y-3">
         <input
+          className="border p-2 w-full"
           type="text"
           placeholder="Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="p-2 border rounded"
         />
         <input
+          className="border p-2 w-full"
           type="number"
-          step="0.01"
           placeholder="Amount"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="p-2 border rounded"
         />
         <input
+          className="border p-2 w-full"
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="p-2 border rounded"
         />
-        <button type="submit" className="bg-blue-500 text-white rounded px-4 py-2 hover:bg-blue-600">
+        <button
+          type="submit"
+          className="bg-blue-600 text-white py-2 px-4 rounded"
+        >
           Add Entry
         </button>
       </form>
 
-      <AgendaCalendar entries={entries} />
+      <AgendaCalendar entries={entries} onRemove={handleRemove} />
     </div>
   );
 }

@@ -14,7 +14,8 @@
     "esbuild": "^0.25.5",
     "react": "^18.2.0",
     "react-big-calendar": "^1.5.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "recharts": "^2.15.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.8",

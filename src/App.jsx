@@ -83,91 +83,79 @@ function App() {
 
   // Parse and add entry from voice input text
   const handleVoiceInput = (text) => {
-    const lower = text.toLowerCase();
+  const lower = text.toLowerCase().trim();
 
-    // Attempt to find income and expense patterns:
-    // Examples:
-    // "I made 50 cutting grass"
-    // "I spent 10 dollars"
-    // "Earned 20 from lawn mowing"
-    // We'll try income first, then expense
+  // Regex patterns with optional "dollar(s)" and relaxed description
+  const incomePatterns = [
+    /made (\d+\.?\d*) ?(?:dollars?)? ?(?:for|from)? ?(.+)?/,
+    /earned (\d+\.?\d*) ?(?:dollars?)? ?(?:for|from)? ?(.+)?/,
+    /income (\d+\.?\d*) ?(?:dollars?)? ?(?:for|from)? ?(.+)?/,
+  ];
 
-    let type = "income";
-    let amount = 0;
-    let description = "";
+  const expensePatterns = [
+    /spent (\d+\.?\d*) ?(?:dollars?)? ?(?:on)? ?(.+)?/,
+    /pay(?:ed)? (\d+\.?\d*) ?(?:dollars?)? ?(?:for)? ?(.+)?/,
+    /expense (\d+\.?\d*) ?(?:dollars?)? ?(?:for)? ?(.+)?/,
+  ];
 
-    const incomePatterns = [
-      /made (\d+\.?\d*) (.+)/,
-      /earned (\d+\.?\d*) (.+)/,
-      /income (\d+\.?\d*) (.+)/,
-    ];
+  let type = null;
+  let amount = null;
+  let description = null;
 
-    const expensePatterns = [
-      /spent (\d+\.?\d*) (.+)/,
-      /pay (\d+\.?\d*) (.+)/,
-      /paid (\d+\.?\d*) (.+)/,
-      /expense (\d+\.?\d*) (.+)/,
-    ];
+  for (const pattern of incomePatterns) {
+    const match = lower.match(pattern);
+    if (match) {
+      amount = parseFloat(match[1]);
+      description = match[2] ? match[2].trim() : "income";
+      type = "income";
+      break;
+    }
+  }
 
-    for (const pattern of incomePatterns) {
+  if (type === null) {
+    for (const pattern of expensePatterns) {
       const match = lower.match(pattern);
       if (match) {
         amount = parseFloat(match[1]);
-        description = match[2];
-        type = "income";
+        description = match[2] ? match[2].trim() : "expense";
+        type = "expense";
         break;
       }
     }
+  }
 
-    if (!amount) {
-      for (const pattern of expensePatterns) {
-        const match = lower.match(pattern);
-        if (match) {
-          amount = parseFloat(match[1]);
-          description = match[2];
-          type = "expense";
-          break;
-        }
-      }
+  // Fallback: try to parse any number and guess description as leftover text
+  if (type === null) {
+    const fallbackMatch = lower.match(/(\d+\.?\d*)/);
+    if (fallbackMatch) {
+      amount = parseFloat(fallbackMatch[1]);
+      // remove the number from text to use as description
+      description = lower.replace(fallbackMatch[1], "").replace(/(made|earned|spent|pay(ed)?|dollars?)/g, "").trim();
+      type = lower.includes("spent") || lower.includes("pay") ? "expense" : "income";
+      if (!description) description = type;
     }
+  }
 
-    // Fallback: try to catch simple "I made 50" or "I spent 10"
-    if (!amount) {
-      const simpleIncome = lower.match(/made (\d+\.?\d*)/);
-      if (simpleIncome) {
-        amount = parseFloat(simpleIncome[1]);
-        description = "income";
-        type = "income";
-      }
-    }
-    if (!amount) {
-      const simpleExpense = lower.match(/spent (\d+\.?\d*)/);
-      if (simpleExpense) {
-        amount = parseFloat(simpleExpense[1]);
-        description = "expense";
-        type = "expense";
-      }
-    }
+  if (amount && description && type) {
+    const today = new Date();
+    today.setHours(12);
+    const isoDate = today.toISOString().split("T")[0];
 
-    if (amount && description) {
-      const today = new Date();
-      today.setHours(12); // timezone fix
-      const isoDate = today.toISOString().split("T")[0];
+    const newEntry = {
+      id: Date.now(),
+      description,
+      amount,
+      date: isoDate,
+      type,
+    };
 
-      const newEntry = {
-        id: Date.now(),
-        description: description.trim(),
-        amount,
-        date: isoDate,
-        type,
-      };
+    setEntries((prev) => [...prev, newEntry]);
+    setError(null);
+  } else {
+    setError("Sorry, couldn't understand your voice entry. Please try again.");
+  }
+};
 
-      setEntries((prev) => [...prev, newEntry]);
-      setError(null);
-    } else {
-      setError("Sorry, couldn't understand your voice entry. Please try again.");
-    }
-  };
 
   const toggleListening = () => {
     if (!recognitionRef.current) return;

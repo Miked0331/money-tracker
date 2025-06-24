@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import AgendaCalendar from "./components/AgendaCalendar";
 import Chart from "./components/Chart";
 import { isWithinInterval, startOfDay } from "date-fns";
+import History from "./components/History";
 
 // Parse YYYY-MM-DD without shifting timezone
 function parseLocalDate(dateString) {
@@ -11,21 +12,31 @@ function parseLocalDate(dateString) {
 
 function App() {
   const [entries, setEntries] = useState([]);
+  const [templates, setTemplates] = useState([]); // NEW: templates state
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [type, setType] = useState("income");
   const [dateRange, setDateRange] = useState([new Date(), new Date()]);
   const [filter, setFilter] = useState("all");
+  const [saveTemplate, setSaveTemplate] = useState(false); // NEW: checkbox to save template
 
+  // Load entries and templates from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("entries");
     if (saved) setEntries(JSON.parse(saved));
+    const savedTemplates = localStorage.getItem("templates");
+    if (savedTemplates) setTemplates(JSON.parse(savedTemplates));
   }, []);
 
+  // Save entries and templates to localStorage
   useEffect(() => {
     localStorage.setItem("entries", JSON.stringify(entries));
   }, [entries]);
+
+  useEffect(() => {
+    localStorage.setItem("templates", JSON.stringify(templates));
+  }, [templates]);
 
   const handleAddEntry = (e) => {
     e.preventDefault();
@@ -43,10 +54,41 @@ function App() {
     };
 
     setEntries([...entries, newEntry]);
+
+    // Save as template if checkbox is checked & not already saved
+    if (saveTemplate) {
+      const exists = templates.some(
+        (t) =>
+          t.description === description &&
+          t.amount === parseFloat(amount) &&
+          t.type === type
+      );
+      if (!exists) {
+        setTemplates([...templates, { description, amount: parseFloat(amount), type }]);
+      }
+    }
+
     setDescription("");
     setAmount("");
     setDate("");
     setType("income");
+    setSaveTemplate(false);
+  };
+
+  // Quickly add an entry from a template using today's date
+  const handleAddFromTemplate = (template) => {
+    const today = new Date();
+    today.setHours(12); // same timezone fix
+    const isoDate = today.toISOString().split("T")[0];
+
+    const newEntry = {
+      id: Date.now(),
+      description: template.description,
+      amount: template.amount,
+      date: isoDate,
+      type: template.type,
+    };
+    setEntries([...entries, newEntry]);
   };
 
   const handleRemove = (id) => {
@@ -111,13 +153,42 @@ function App() {
           <option value="income">Income</option>
           <option value="expense">Expense</option>
         </select>
+
+        {/* Checkbox to save template */}
+        <label className="inline-flex items-center space-x-2 mt-2">
+          <input
+            type="checkbox"
+            checked={saveTemplate}
+            onChange={(e) => setSaveTemplate(e.target.checked)}
+          />
+          <span>Save as template</span>
+        </label>
+
         <button
           type="submit"
-          className="bg-blue-600 hover:bg-blue-700 text-white py-3 rounded w-full"
+          className="bg-blue-600 hover:bg-blue-700 text-white py-3 rounded w-full mt-2"
         >
           Add Entry
         </button>
       </form>
+
+      {/* Quick Add Template Buttons */}
+      {templates.length > 0 && (
+        <div className="mb-6 max-w-md mx-auto">
+          <h2 className="font-semibold mb-2">Quick Add Templates</h2>
+          <div className="flex flex-wrap gap-2">
+            {templates.map((template, i) => (
+              <button
+                key={i}
+                onClick={() => handleAddFromTemplate(template)}
+                className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
+              >
+                {template.description} (${template.amount.toFixed(2)}) [{template.type}]
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-center gap-2 mb-4">
         {["all", "income", "expense"].map((t) => (
@@ -141,7 +212,7 @@ function App() {
 
       <div className="mt-4 p-4 bg-gray-100 rounded text-center">
         <h2 className="text-lg font-semibold mb-2">
-          Net Total in View: {" "}
+          Net Total in View:{" "}
           <span className={totalAmount < 0 ? "text-red-600" : "text-green-600"}>
             ${totalAmount.toFixed(2)}
           </span>
@@ -176,6 +247,7 @@ function App() {
           ))}
         </ul>
       </div>
+       <History entries={filteredEntries} />
     </div>
   );
 }

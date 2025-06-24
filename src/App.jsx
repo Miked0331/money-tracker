@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import AgendaCalendar from "./components/AgendaCalendar";
 import Chart from "./components/Chart";
-import { isWithinInterval, startOfDay } from "date-fns";
 import History from "./components/History";
+import { isWithinInterval, startOfDay } from "date-fns";
 
 // Parse YYYY-MM-DD without shifting timezone
 function parseLocalDate(dateString) {
@@ -12,14 +12,20 @@ function parseLocalDate(dateString) {
 
 function App() {
   const [entries, setEntries] = useState([]);
-  const [templates, setTemplates] = useState([]); // NEW: templates state
+  const [templates, setTemplates] = useState([]); // templates state
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [type, setType] = useState("income");
   const [dateRange, setDateRange] = useState([new Date(), new Date()]);
   const [filter, setFilter] = useState("all");
-  const [saveTemplate, setSaveTemplate] = useState(false); // NEW: checkbox to save template
+  const [saveTemplate, setSaveTemplate] = useState(false);
+
+  // Voice input states
+  const [listening, setListening] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [error, setError] = useState(null);
+  const recognitionRef = useRef(null);
 
   // Load entries and templates from localStorage
   useEffect(() => {
@@ -38,6 +44,142 @@ function App() {
     localStorage.setItem("templates", JSON.stringify(templates));
   }, [templates]);
 
+  // Setup SpeechRecognition API
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setError("Speech Recognition API not supported in this browser.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setError(null);
+      setListening(true);
+      setTranscript("");
+    };
+
+    recognition.onresult = (event) => {
+      const speechToText = event.results[0][0].transcript;
+      setTranscript(speechToText);
+      handleVoiceInput(speechToText);
+      setListening(false);
+    };
+
+    recognition.onerror = (event) => {
+      setError(`Error occurred: ${event.error}`);
+      setListening(false);
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+    };
+
+    recognitionRef.current = recognition;
+  }, []);
+
+  // Parse and add entry from voice input text
+  const handleVoiceInput = (text) => {
+    const lower = text.toLowerCase();
+
+    // Attempt to find income and expense patterns:
+    // Examples:
+    // "I made 50 cutting grass"
+    // "I spent 10 dollars"
+    // "Earned 20 from lawn mowing"
+    // We'll try income first, then expense
+
+    let type = "income";
+    let amount = 0;
+    let description = "";
+
+    const incomePatterns = [
+      /made (\d+\.?\d*) (.+)/,
+      /earned (\d+\.?\d*) (.+)/,
+      /income (\d+\.?\d*) (.+)/,
+    ];
+
+    const expensePatterns = [
+      /spent (\d+\.?\d*) (.+)/,
+      /pay (\d+\.?\d*) (.+)/,
+      /paid (\d+\.?\d*) (.+)/,
+      /expense (\d+\.?\d*) (.+)/,
+    ];
+
+    for (const pattern of incomePatterns) {
+      const match = lower.match(pattern);
+      if (match) {
+        amount = parseFloat(match[1]);
+        description = match[2];
+        type = "income";
+        break;
+      }
+    }
+
+    if (!amount) {
+      for (const pattern of expensePatterns) {
+        const match = lower.match(pattern);
+        if (match) {
+          amount = parseFloat(match[1]);
+          description = match[2];
+          type = "expense";
+          break;
+        }
+      }
+    }
+
+    // Fallback: try to catch simple "I made 50" or "I spent 10"
+    if (!amount) {
+      const simpleIncome = lower.match(/made (\d+\.?\d*)/);
+      if (simpleIncome) {
+        amount = parseFloat(simpleIncome[1]);
+        description = "income";
+        type = "income";
+      }
+    }
+    if (!amount) {
+      const simpleExpense = lower.match(/spent (\d+\.?\d*)/);
+      if (simpleExpense) {
+        amount = parseFloat(simpleExpense[1]);
+        description = "expense";
+        type = "expense";
+      }
+    }
+
+    if (amount && description) {
+      const today = new Date();
+      today.setHours(12); // timezone fix
+      const isoDate = today.toISOString().split("T")[0];
+
+      const newEntry = {
+        id: Date.now(),
+        description: description.trim(),
+        amount,
+        date: isoDate,
+        type,
+      };
+
+      setEntries((prev) => [...prev, newEntry]);
+      setError(null);
+    } else {
+      setError("Sorry, couldn't understand your voice entry. Please try again.");
+    }
+  };
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) return;
+    if (listening) {
+      recognitionRef.current.stop();
+    } else {
+      recognitionRef.current.start();
+    }
+  };
+
+  // Rest of your existing handlers...
+
   const handleAddEntry = (e) => {
     e.preventDefault();
     if (!description || !amount || !date) return;
@@ -55,7 +197,6 @@ function App() {
 
     setEntries([...entries, newEntry]);
 
-    // Save as template if checkbox is checked & not already saved
     if (saveTemplate) {
       const exists = templates.some(
         (t) =>
@@ -75,10 +216,9 @@ function App() {
     setSaveTemplate(false);
   };
 
-  // Quickly add an entry from a template using today's date
   const handleAddFromTemplate = (template) => {
     const today = new Date();
-    today.setHours(12); // same timezone fix
+    today.setHours(12);
     const isoDate = today.toISOString().split("T")[0];
 
     const newEntry = {
@@ -124,6 +264,28 @@ function App() {
     <div className="p-4 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">💰 Money Tracker</h1>
 
+      {/* Voice Input Section */}
+      <div className="mb-6 max-w-md mx-auto p-4 border rounded shadow-sm bg-gray-50">
+        <h2 className="text-lg font-semibold mb-2">🎙️ Voice Input</h2>
+        <button
+          onClick={toggleListening}
+          className={`mb-3 px-4 py-2 rounded font-semibold ${
+            listening ? "bg-red-500 text-white" : "bg-green-600 text-white"
+          } hover:opacity-90`}
+        >
+          {listening ? "Stop Listening" : "Start Listening"}
+        </button>
+
+        <div className="min-h-[40px] mb-2 p-2 bg-white border rounded text-gray-800">
+          {transcript || <span className="text-gray-400 italic">Your speech will appear here...</span>}
+        </div>
+
+        {error && (
+          <p className="text-red-600 font-semibold">{error}</p>
+        )}
+      </div>
+
+      {/* Existing form */}
       <form onSubmit={handleAddEntry} className="mb-6 space-y-3 max-w-md mx-auto">
         <input
           className="border border-gray-300 p-3 rounded w-full"
@@ -190,6 +352,7 @@ function App() {
         </div>
       )}
 
+      {/* Filter Buttons */}
       <div className="flex justify-center gap-2 mb-4">
         {["all", "income", "expense"].map((t) => (
           <button
@@ -247,7 +410,8 @@ function App() {
           ))}
         </ul>
       </div>
-       <History entries={filteredEntries} />
+
+      <History entries={filteredEntries} />
     </div>
   );
 }

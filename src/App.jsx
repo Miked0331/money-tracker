@@ -4,7 +4,7 @@ import Chart from "./components/Chart";
 import History from "./components/History";
 import { isWithinInterval, startOfDay } from "date-fns";
 
-// Date parsing
+// Date parsing helper
 function parseLocalDate(dateString) {
   const [year, month, day] = dateString.split("-").map(Number);
   return new Date(year, month - 1, day);
@@ -22,20 +22,23 @@ function App() {
   const [saveTemplate, setSaveTemplate] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
 
-  // Voice input
+  // Voice input states
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState(null);
   const recognitionRef = useRef(null);
 
-  // Load from localStorage
+  // Load entries, templates, and dark mode from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem("entries");
+    const savedEntries = localStorage.getItem("entries");
     const savedTemplates = localStorage.getItem("templates");
-    if (saved) setEntries(JSON.parse(saved));
+    const savedDarkMode = localStorage.getItem("darkMode");
+    if (savedEntries) setEntries(JSON.parse(savedEntries));
     if (savedTemplates) setTemplates(JSON.parse(savedTemplates));
+    if (savedDarkMode) setDarkMode(savedDarkMode === "true");
   }, []);
 
+  // Save entries and templates when they change
   useEffect(() => {
     localStorage.setItem("entries", JSON.stringify(entries));
   }, [entries]);
@@ -44,6 +47,12 @@ function App() {
     localStorage.setItem("templates", JSON.stringify(templates));
   }, [templates]);
 
+  // Save dark mode preference
+  useEffect(() => {
+    localStorage.setItem("darkMode", darkMode);
+  }, [darkMode]);
+
+  // Setup SpeechRecognition API
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -74,19 +83,28 @@ function App() {
     };
 
     recognition.onend = () => setListening(false);
+
     recognitionRef.current = recognition;
   }, []);
 
   const toggleListening = () => {
-    if (recognitionRef.current) {
-      listening ? recognitionRef.current.stop() : recognitionRef.current.start();
-    }
+    if (!recognitionRef.current) return;
+    listening ? recognitionRef.current.stop() : recognitionRef.current.start();
   };
 
+  // Voice input parser and entry adder
   const handleVoiceInput = (text) => {
     const lower = text.toLowerCase().trim();
-    const incomeP = [/made (\d+\.?\d*) ?(?:dollars?)?(?: for| from)? (.+)?/, /earned (\d+\.?\d*) ?(?:dollars?)? ?(.+)?/];
-    const expenseP = [/spent (\d+\.?\d*) ?(?:dollars?)?(?: on)? (.+)?/, /paid (\d+\.?\d*) ?(?:dollars?)? ?(.+)?/];
+    const incomeP = [
+      /made (\d+\.?\d*) ?(?:dollars?)?(?: for| from)? (.+)?/,
+      /earned (\d+\.?\d*) ?(?:dollars?)? ?(.+)?/,
+      /income (\d+\.?\d*) ?(?:dollars?)? ?(.+)?/
+    ];
+    const expenseP = [
+      /spent (\d+\.?\d*) ?(?:dollars?)?(?: on)? (.+)?/,
+      /paid (\d+\.?\d*) ?(?:dollars?)? ?(.+)?/,
+      /expense (\d+\.?\d*) ?(?:dollars?)? ?(.+)?/
+    ];
 
     let type = null, amount = null, description = null;
 
@@ -94,7 +112,7 @@ function App() {
       const match = lower.match(p);
       if (match) {
         amount = parseFloat(match[1]);
-        description = match[2]?.trim() || "income";
+        description = match[2]?.trim() || "Income";
         type = "income";
         break;
       }
@@ -105,7 +123,7 @@ function App() {
         const match = lower.match(p);
         if (match) {
           amount = parseFloat(match[1]);
-          description = match[2]?.trim() || "expense";
+          description = match[2]?.trim() || "Expense";
           type = "expense";
           break;
         }
@@ -115,25 +133,35 @@ function App() {
     if (!type && /\d+/.test(lower)) {
       const amt = lower.match(/(\d+(\.\d+)?)/)[0];
       amount = parseFloat(amt);
-      description = lower.replace(amt, "").replace(/(made|earned|spent|paid|dollars?)/g, "").trim() || "entry";
+      description = lower.replace(amt, "").replace(/(made|earned|spent|paid|dollars?)/g, "").trim();
+      if (!description) description = "Entry";
       type = lower.includes("spent") || lower.includes("paid") ? "expense" : "income";
     }
 
     if (type && amount && description) {
       const today = new Date();
       today.setHours(12);
-      setEntries([...entries, {
-        id: Date.now(),
-        description,
-        amount,
-        date: today.toISOString().split("T")[0],
-        type
-      }]);
+
+      // Use functional update to avoid stale closure
+      setEntries((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          description,
+          amount,
+          date: today.toISOString().split("T")[0],
+          type
+        }
+      ]);
+
+      setError(null);
+      setTranscript(""); // Clear transcript after adding entry
     } else {
-      setError("Could not understand voice input.");
+      setError("Could not understand voice input. Please try again.");
     }
   };
 
+  // Manual form entry handler
   const handleAddEntry = (e) => {
     e.preventDefault();
     if (!description || !amount || !date) return;
@@ -147,7 +175,7 @@ function App() {
       date: localDate.toISOString().split("T")[0],
       type,
     };
-    setEntries([...entries, newEntry]);
+    setEntries((prev) => [...prev, newEntry]);
 
     if (saveTemplate) {
       const exists = templates.some(
@@ -157,7 +185,7 @@ function App() {
           t.type === type
       );
       if (!exists) {
-        setTemplates([...templates, { description, amount: parseFloat(amount), type }]);
+        setTemplates((prev) => [...prev, { description, amount: parseFloat(amount), type }]);
       }
     }
 
@@ -172,10 +200,13 @@ function App() {
     const today = new Date();
     today.setHours(12);
     const isoDate = today.toISOString().split("T")[0];
-    setEntries([...entries, { ...template, id: Date.now(), date: isoDate }]);
+    setEntries((prev) => [...prev, { ...template, id: Date.now(), date: isoDate }]);
   };
 
-  const handleRemove = (id) => setEntries(entries.filter((entry) => entry.id !== id));
+  const handleRemove = (id) => {
+    setEntries((prev) => prev.filter((entry) => entry.id !== id));
+  };
+
   const handleRangeChange = (range) => {
     if (Array.isArray(range)) setDateRange([range[0], range[range.length - 1]]);
     else if (range.start && range.end) setDateRange([range.start, range.end]);
@@ -237,6 +268,8 @@ function App() {
               placeholder="Amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              min="0"
+              step="0.01"
             />
             <input
               className="w-full p-3 rounded border dark:border-gray-600 bg-white dark:bg-gray-700 text-black dark:text-white"
@@ -291,7 +324,7 @@ function App() {
                   filter === t ? "bg-blue-500 text-white" : "bg-gray-200 dark:bg-gray-700"
                 }`}
               >
-                {t}
+                {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
           </div>
@@ -315,7 +348,7 @@ function App() {
               {filteredEntries.map((entry) => (
                 <li
                   key={entry.id}
-                  className={`p-3 rounded shadow-sm flex justify-between items-center ${
+                  className={`p-3 rounded shadow-sm flex justify-between items-center transition-transform hover:scale-[1.01] ${
                     entry.type === "expense" ? "bg-red-100 dark:bg-red-800" : "bg-green-100 dark:bg-green-800"
                   }`}
                 >

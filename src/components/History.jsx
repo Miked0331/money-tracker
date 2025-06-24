@@ -1,41 +1,33 @@
 import React from "react";
-import { parseISO, format } from "date-fns";
 
 export default function History({ entries }) {
-  // Sort entries by date descending (most recent first)
-  const sortedEntries = [...entries].sort((a, b) => {
-    return new Date(b.date) - new Date(a.date);
-  });
-
   return (
-    <div className="mt-8 max-w-md mx-auto p-4 border rounded bg-white shadow">
-      <h2 className="text-xl font-semibold mb-4">History</h2>
-      {sortedEntries.length === 0 ? (
-        <p className="text-gray-500">No entries to display.</p>
+    <div className="mt-6">
+      <h2 className="font-semibold mb-2">🕑 History (Last 10 Entries)</h2>
+      {entries.length === 0 ? (
+        <p className="text-gray-500 dark:text-gray-400 italic">No entries found.</p>
       ) : (
-        <ul className="space-y-2 max-h-64 overflow-y-auto">
-          {sortedEntries.map(({ id, description, amount, date, type }) => (
-            <li
-              key={id}
-              className={`flex justify-between p-2 rounded ${
-                type === "expense" ? "bg-red-100" : "bg-green-100"
-              }`}
-            >
-              <div>
-                <p className="font-medium">{description}</p>
-                <p className="text-sm text-gray-600">
-                  {format(parseISO(date), "MMM dd, yyyy")}
-                </p>
-              </div>
-              <div
-                className={`font-semibold ${
-                  type === "expense" ? "text-red-600" : "text-green-600"
+        <ul className="space-y-2 max-h-60 overflow-y-auto">
+          {entries
+            .slice()
+            .reverse()
+            .slice(0, 10)
+            .map((entry) => (
+              <li
+                key={entry.id}
+                className={`p-2 rounded flex justify-between items-center ${
+                  entry.type === "expense" ? "bg-red-100 dark:bg-red-700" : "bg-green-100 dark:bg-green-700"
                 }`}
               >
-                ${amount.toFixed(2)}
-              </div>
-            </li>
-          ))}
+                <div>
+                  <p className="font-medium">{entry.description}</p>
+                  <p className="text-sm">{entry.date}</p>
+                </div>
+                <span className="font-semibold">
+                  {entry.type === "expense" ? "-" : "+"}${entry.amount.toFixed(2)}
+                </span>
+              </li>
+            ))}
         </ul>
       )}
     </div>

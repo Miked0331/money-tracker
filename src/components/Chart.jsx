@@ -1,48 +1,45 @@
 import React from "react";
 import { Bar } from "react-chartjs-2";
+import { format, parseISO } from "date-fns";
 import {
   Chart as ChartJS,
   BarElement,
   CategoryScale,
   LinearScale,
-  Legend,
   Tooltip,
+  Legend,
 } from "chart.js";
 
-ChartJS.register(BarElement, CategoryScale, LinearScale, Legend, Tooltip);
+ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
-const Chart = ({ entries }) => {
-  const incomeTotal = entries
-    .filter((e) => e.type === "income")
-    .reduce((sum, e) => sum + e.amount, 0);
-  const expenseTotal = entries
-    .filter((e) => e.type === "expense")
-    .reduce((sum, e) => sum + e.amount, 0);
+export default function Chart({ entries }) {
+  // Aggregate amounts per date (net: income - expense)
+  const amountsByDate = {};
 
-  const net = incomeTotal - expenseTotal;
+  entries.forEach(({ date, amount, type }) => {
+    if (!amountsByDate[date]) amountsByDate[date] = 0;
+    amountsByDate[date] += type === "expense" ? -amount : amount;
+  });
 
+  const sortedDates = Object.keys(amountsByDate).sort();
   const data = {
-    labels: ["Income", "Expenses", "Net Total"],
+    labels: sortedDates.map((d) => format(parseISO(d), "MMM d")),
     datasets: [
       {
-        label: "Amount",
-        data: [incomeTotal, expenseTotal, net],
-        backgroundColor: ["#22c55e", "#ef4444", net >= 0 ? "#3b82f6" : "#f97316"],
+        label: "Net Amount",
+        data: sortedDates.map((d) => amountsByDate[d].toFixed(2)),
+        backgroundColor: sortedDates.map((d) =>
+          amountsByDate[d] < 0 ? "rgba(220, 38, 38, 0.7)" : "rgba(34, 197, 94, 0.7)"
+        ),
+        borderRadius: 4,
+        borderSkipped: false,
       },
     ],
   };
 
   const options = {
     responsive: true,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: (context) =>
-            `$${parseFloat(context.raw).toFixed(2)}`,
-        },
-      },
-    },
+    plugins: { legend: { display: false } },
     scales: {
       y: {
         beginAtZero: true,
@@ -53,7 +50,10 @@ const Chart = ({ entries }) => {
     },
   };
 
-  return <Bar data={data} options={options} />;
-};
-
-export default Chart;
+  return (
+    <div className="mb-6 p-4 bg-gray-100 dark:bg-gray-800 rounded">
+      <h2 className="font-semibold mb-4 text-center">📊 Net Amount by Date</h2>
+      <Bar data={data} options={options} />
+    </div>
+  );
+}

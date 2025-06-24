@@ -10,12 +10,50 @@ function parseLocalDate(dateString) {
   return new Date(year, month - 1, day);
 }
 
+function parseVoiceInput(text) {
+  text = text.toLowerCase();
+
+  let type = "income";
+  if (text.includes("spent") || text.includes("paid") || text.includes("bought")) {
+    type = "expense";
+  } else if (text.includes("made") || text.includes("earned") || text.includes("received")) {
+    type = "income";
+  }
+
+  // Extract amount - find first number
+  const amountMatch = text.match(/(\d+(\.\d+)?)/);
+  const amount = amountMatch ? parseFloat(amountMatch[0]) : null;
+
+  // Extract description - remove keywords and numbers
+  let description = text
+    .replace(/(spent|paid|bought|made|earned|received|today|yesterday|in|on|\d+(\.\d+)?)/g, "")
+    .trim();
+
+  if (!description) description = "No description";
+
+  // Date - default to today, or yesterday if mentioned
+  let date = new Date();
+  if (text.includes("yesterday")) {
+    date.setDate(date.getDate() - 1);
+  }
+
+  const isoDate = date.toISOString().split("T")[0];
+
+  return { type, amount, description, date: isoDate };
+}
+
+
 function App() {
   const [entries, setEntries] = useState([]);
   const [templates, setTemplates] = useState([]); // templates state
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(() => {
+  const today = new Date();
+  today.setHours(12);
+  return today.toISOString().split("T")[0];
+});
+
   const [type, setType] = useState("income");
   const [dateRange, setDateRange] = useState([new Date(), new Date()]);
   const [filter, setFilter] = useState("all");

@@ -1,49 +1,61 @@
 import React from "react";
-import { format, parseISO } from "date-fns";
+import { Calendar, Views, dateFnsLocalizer } from "react-big-calendar";
+import { format, parse, startOfWeek, getDay } from "date-fns";
+import enUS from "date-fns/locale/en-US";
+import "react-big-calendar/lib/css/react-big-calendar.css";
 
-export default function AgendaCalendar({ entries, onRangeChange, onRemove }) {
-  // Group entries by date for agenda style
-  const grouped = entries.reduce((acc, entry) => {
-    acc[entry.date] = acc[entry.date] || [];
-    acc[entry.date].push(entry);
-    return acc;
-  }, {});
+const locales = {
+  "en-US": enUS,
+};
 
-  // Sort dates descending
-  const sortedDates = Object.keys(grouped).sort((a, b) => (a < b ? 1 : -1));
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+});
+
+const AgendaCalendar = ({ entries, onRangeChange }) => {
+  // Adjust entry dates to force time to noon, which avoids timezone offsets
+  const events = entries.map((entry) => {
+    const [year, month, day] = entry.date.split("-").map(Number);
+    const correctedDate = new Date(year, month - 1, day, 12); // set time to noon
+
+    return {
+      title: `${entry.description} - $${entry.amount.toFixed(2)}`,
+      start: correctedDate,
+      end: correctedDate,
+      allDay: true,
+      resource: entry.type,
+    };
+  });
 
   return (
-    <div className="mb-6">
-      <h2 className="text-lg font-semibold mb-2">📅 Agenda</h2>
-      {sortedDates.length === 0 && (
-        <p className="text-gray-500 dark:text-gray-400 italic">No entries in this date range.</p>
-      )}
-      {sortedDates.map((date) => (
-        <div key={date} className="mb-4 border-b border-gray-300 dark:border-gray-700 pb-2">
-          <h3 className="font-semibold mb-1">{format(parseISO(date), "eeee, MMMM d, yyyy")}</h3>
-          <ul className="space-y-1">
-            {grouped[date].map((entry) => (
-              <li
-                key={entry.id}
-                className={`flex justify-between items-center p-2 rounded ${
-                  entry.type === "expense" ? "bg-red-100 dark:bg-red-700" : "bg-green-100 dark:bg-green-700"
-                }`}
-              >
-                <div>
-                  <p className="font-medium">{entry.description}</p>
-                  <p className="text-sm">${entry.amount.toFixed(2)}</p>
-                </div>
-                <button
-                  onClick={() => onRemove(entry.id)}
-                  className="text-sm bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+    <div style={{ height: 600 }}>
+      <Calendar
+        localizer={localizer}
+        events={events}
+        startAccessor="start"
+        endAccessor="end"
+        views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
+        defaultView={Views.MONTH}
+        style={{
+          backgroundColor: "#fff",
+          padding: "10px",
+          borderRadius: "8px",
+        }}
+        onRangeChange={onRangeChange}
+        eventPropGetter={(event) => ({
+          style: {
+            backgroundColor:
+              event.resource === "expense" ? "#fecaca" : "#bbf7d0",
+            color: "#000",
+          },
+        })}
+      />
     </div>
   );
-}
+};
+
+export default AgendaCalendar;

@@ -45,3 +45,29 @@
   background: #a3d5ff;
   border-radius: 6px;
 }
+
+/* Force calendar dark mode */
+.dark .rbc-calendar,
+.dark .rbc-month-view,
+.dark .rbc-time-view,
+.dark .rbc-agenda-view {
+  background-color: #1f2937 !important; /* gray-800 */
+  color: #f9fafb !important;
+}
+
+.dark .rbc-header,
+.dark .rbc-time-header,
+.dark .rbc-time-content,
+.dark .rbc-day-bg {
+  background-color: #1f2937 !important;
+  color: #f9fafb !important;
+}
+
+.dark .rbc-off-range-bg {
+  background-color: #111827 !important; /* gray-900 */
+}
+
+.dark .rbc-event {
+  background-color: #2563eb !important; /* blue-600 */
+  color: white !important;
+}

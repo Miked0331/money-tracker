@@ -3,6 +3,8 @@ import AgendaCalendar from "./components/AgendaCalendar";
 import Chart from "./components/Chart";
 import History from "./components/History";
 import { isWithinInterval, startOfDay } from "date-fns";
+import logo from "./assets/logo.png";
+
 
 
 const DEFAULT_TEMPLATES = [
@@ -305,10 +307,11 @@ function App() {
           <div className="flex items-center justify-between gap-3 mb-4 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
             <div className="flex items-center gap-3">
               <img
-                src="/logo.png"
-                alt="Lawn Ledger logo"
-                className="h-12 w-12 rounded-lg shadow-sm"
-              />
+  src={logo}
+  alt="Lawn Ledger logo"
+  className="h-12 w-12 rounded-lg shadow-sm"
+/>
+
               <div>
                 <h1 className="text-3xl font-bold">Lawn Ledger</h1>
                 <p className="text-sm text-gray-600 dark:text-gray-300">Track every lawn job and expense at a glance.</p>

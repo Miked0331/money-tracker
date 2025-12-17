@@ -107,3 +107,5 @@
     min-width: 260px;
   }
 }
+
+.app-logo { width: 56px; height: 56px; object-fit: contain; }
